@@ -1,11 +1,49 @@
 #!/usr/bin/env bash
 # One-command installer for all 179 global skills across Google accounts
-# Run this in any new Google account / Antigravity workspace after connecting the GitHub plugin:
+# Hosted at: https://github.com/samtran1991/agent-skills
+#
+# Fast install (uses pre-built archive in repo if available, ~3 seconds):
 #   bash install-all-skills.sh
+#
+# Rebuild fresh from all 15 upstream GitHub repositories:
+#   bash install-all-skills.sh --from-source
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+FROM_SOURCE=0
+if [ "${1:-}" = "--from-source" ]; then
+  FROM_SOURCE=1
+fi
+
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.claude/agents" "$HOME/.claude/commands" "$HOME/.gemini/skills"
+
+# Fast path: extract bundled all-skills.tar.gz (or split parts) if present
+if [ "$FROM_SOURCE" = "0" ] && { [ -f "$SCRIPT_DIR/all-skills.tar.gz" ] || [ -f "$SCRIPT_DIR/all-skills.tar.gz.part-aa" ]; }; then
+  echo "=== 1/2 Extracting bundled 179-skill archive to $HOME ==="
+  if [ -f "$SCRIPT_DIR/all-skills.tar.gz" ]; then
+    tar -xzf "$SCRIPT_DIR/all-skills.tar.gz" -C "$HOME"
+    cp "$SCRIPT_DIR/all-skills.tar.gz" "$HOME/.gemini/all-skills.tar.gz"
+  else
+    cat "$SCRIPT_DIR"/all-skills.tar.gz.part-* > /tmp/all-skills-combined.tar.gz
+    tar -xzf /tmp/all-skills-combined.tar.gz -C "$HOME"
+    mv /tmp/all-skills-combined.tar.gz "$HOME/.gemini/all-skills.tar.gz"
+  fi
+  cp "$HOME/.gemini/all-skills.tar.gz" "$HOME/.gemini/all-165-skills.tar.gz" 2>/dev/null || true
+
+  echo "=== 2/2 Syncing global ~/.gemini/skills ==="
+  for d in "$HOME/.agents/skills/"*; do
+    if [ -d "$d" ] && [ -f "$d/SKILL.md" ]; then
+      sname=$(basename "$d")
+      mkdir -p "$HOME/.gemini/skills/$sname"
+      cp "$d/SKILL.md" "$HOME/.gemini/skills/$sname/SKILL.md"
+    fi
+  done
+  echo "Done! Installed $(ls -1 "$HOME/.agents/skills" | wc -l) skills globally from archive."
+  exit 0
+fi
+
 WORK="/tmp/skills-bootstrap-$$"
-mkdir -p "$WORK" "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.claude/agents" "$HOME/.claude/commands" "$HOME/.gemini/skills"
+mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
 REPOS=(
@@ -87,19 +125,19 @@ See `references/README.md` and `references/TROUBLESHOOTING.md` for full tool doc
 EOF
 cp -r "$WORK/google-analytics-mcp/README.md" "$WORK/google-analytics-mcp/TROUBLESHOOTING.md" "$WORK/google-analytics-mcp/analytics_mcp" "$WORK/google-analytics-mcp/examples" "$HOME/.agents/skills/google-analytics-mcp/references/"
 
-# ai-job-search-dev/ai-job-search (6 in .agents/skills + 3 in .claude/skills + agents/commands)
 cp -r "$WORK/ai-job-search/.agents/skills/"* "$HOME/.agents/skills/"
 cp -r "$WORK/ai-job-search/.claude/skills/"* "$HOME/.agents/skills/"
 cp -r "$WORK/ai-job-search/.claude/agents/"* "$HOME/.claude/agents/" 2>/dev/null || true
 cp -r "$WORK/ai-job-search/.claude/commands/"* "$HOME/.claude/commands/" 2>/dev/null || true
 
-# trussary/vietnamese-language-skill (5 skills)
 cp -r "$WORK/vietnamese-language-skill/skills/"* "$HOME/.agents/skills/"
 
-cp -rn "$HOME/.agents/skills/"* "$HOME/.claude/skills/" 2>/dev/null || true
+rm -rf "$HOME/.claude/skills" && mkdir -p "$HOME/.claude/skills"
+cp -al "$HOME/.agents/skills/"* "$HOME/.claude/skills/" 2>/dev/null || cp -rn "$HOME/.agents/skills/"* "$HOME/.claude/skills/"
 
 echo "=== 3/3 Syncing global ~/.gemini/skills and bundle ==="
 tar -czf "$HOME/.gemini/all-skills.tar.gz" -C "$HOME" .agents/skills .claude/skills .claude/agents .claude/commands .claude/claude-blog-manifest.txt
+cp "$HOME/.gemini/all-skills.tar.gz" "$HOME/.gemini/all-165-skills.tar.gz" 2>/dev/null || true
 for d in "$HOME/.agents/skills/"*; do
   if [ -d "$d" ] && [ -f "$d/SKILL.md" ]; then
     sname=$(basename "$d")
