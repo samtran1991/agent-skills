@@ -1,11 +1,29 @@
 # Agent Skills Bootstrap (`179 Skills`)
 
-One-command installer for all **179 AI Agent Skills** across 15 repositories.
+One-command installer and pre-packaged `tar.gz` bundle for all **179 AI Agent Skills** across 15 repositories.
 
-## Quick Install (Any Google Account / Antigravity Workspace)
+## 1. Fast Install in Any New Google Account (Uses Pre-Built Tar Bundle)
 
 ```bash
 git clone --depth 1 https://github.com/samtran1991/agent-skills.git /tmp/agent-skills && bash /tmp/agent-skills/install-all-skills.sh && rm -rf /tmp/agent-skills
+```
+
+Or extract the `tar.gz` bundle directly into `$HOME`:
+
+```bash
+git clone --depth 1 https://github.com/samtran1991/agent-skills.git /tmp/agent-skills && cat /tmp/agent-skills/all-skills.tar.gz.part-* | tar -xzf - -C "$HOME" && rm -rf /tmp/agent-skills
+```
+
+## 2. Instant Restore Within the Same Google Account (`~/.gemini/all-skills.tar.gz`)
+
+```bash
+tar -xzf ~/.gemini/all-skills.tar.gz -C "$HOME"
+```
+
+## 3. Rebuild Fresh From All 15 Upstream GitHub Repos
+
+```bash
+git clone --depth 1 https://github.com/samtran1991/agent-skills.git /tmp/agent-skills && bash /tmp/agent-skills/install-all-skills.sh --from-source && rm -rf /tmp/agent-skills
 ```
 
 ## Included Repositories (179 Skills)
