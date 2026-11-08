@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command installer for all 179 global skills across Google accounts
+# One-command installer for all 179 global skills across Projects & Google accounts
 # Hosted at: https://github.com/samtran1991/agent-skills
 #
 # Fast install (uses pre-built archive in repo if available, ~3 seconds):
@@ -15,29 +15,46 @@ if [ "${1:-}" = "--from-source" ]; then
   FROM_SOURCE=1
 fi
 
-mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.claude/agents" "$HOME/.claude/commands" "$HOME/.gemini/skills"
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.claude/agents" "$HOME/.claude/commands" "$HOME/.gemini/skills/agent-skills-bundle"
+
+save_global_bundle() {
+  local src_tar="$1"
+  cat "$src_tar" > "$HOME/.gemini/all-skills.tar.gz"
+  cat "$src_tar" > "$HOME/.gemini/skills/agent-skills-bundle/all-skills.tar.gz"
+  cat > "$HOME/.gemini/skills/agent-skills-bundle/SKILL.md" <<'EOF'
+---
+name: agent-skills-bundle
+description: "Global bootstrap bundle for all 179 installed skills across projects and Google accounts. Restore with: tar -xzf ~/.gemini/skills/agent-skills-bundle/all-skills.tar.gz -C $HOME"
+---
+
+# Agent Skills Bundle (179 Skills)
+
+Restore all 179 skills into `$HOME`:
+```bash
+tar -xzf ~/.gemini/skills/agent-skills-bundle/all-skills.tar.gz -C "$HOME" 2>/dev/null || (git clone --depth 1 https://github.com/samtran1991/agent-skills.git /tmp/agent-skills && cat /tmp/agent-skills/all-skills.tar.gz.part-* | tar -xzf - -C "$HOME" && rm -rf /tmp/agent-skills)
+```
+EOF
+  for d in "$HOME/.agents/skills/"*; do
+    if [ -d "$d" ] && [ -f "$d/SKILL.md" ]; then
+      sname=$(basename "$d")
+      mkdir -p "$HOME/.gemini/skills/$sname"
+      cat "$d/SKILL.md" > "$HOME/.gemini/skills/$sname/SKILL.md"
+    fi
+  done
+}
 
 # Fast path: extract bundled all-skills.tar.gz (or split parts) if present
 if [ "$FROM_SOURCE" = "0" ] && { [ -f "$SCRIPT_DIR/all-skills.tar.gz" ] || [ -f "$SCRIPT_DIR/all-skills.tar.gz.part-aa" ]; }; then
   echo "=== 1/2 Extracting bundled 179-skill archive to $HOME ==="
   if [ -f "$SCRIPT_DIR/all-skills.tar.gz" ]; then
     tar -xzf "$SCRIPT_DIR/all-skills.tar.gz" -C "$HOME"
-    cp "$SCRIPT_DIR/all-skills.tar.gz" "$HOME/.gemini/all-skills.tar.gz"
+    save_global_bundle "$SCRIPT_DIR/all-skills.tar.gz"
   else
     cat "$SCRIPT_DIR"/all-skills.tar.gz.part-* > /tmp/all-skills-combined.tar.gz
     tar -xzf /tmp/all-skills-combined.tar.gz -C "$HOME"
-    mv /tmp/all-skills-combined.tar.gz "$HOME/.gemini/all-skills.tar.gz"
+    save_global_bundle /tmp/all-skills-combined.tar.gz
+    rm -f /tmp/all-skills-combined.tar.gz
   fi
-  cp "$HOME/.gemini/all-skills.tar.gz" "$HOME/.gemini/all-165-skills.tar.gz" 2>/dev/null || true
-
-  echo "=== 2/2 Syncing global ~/.gemini/skills ==="
-  for d in "$HOME/.agents/skills/"*; do
-    if [ -d "$d" ] && [ -f "$d/SKILL.md" ]; then
-      sname=$(basename "$d")
-      mkdir -p "$HOME/.gemini/skills/$sname"
-      cp "$d/SKILL.md" "$HOME/.gemini/skills/$sname/SKILL.md"
-    fi
-  done
   echo "Done! Installed $(ls -1 "$HOME/.agents/skills" | wc -l) skills globally from archive."
   exit 0
 fi
@@ -136,14 +153,7 @@ rm -rf "$HOME/.claude/skills" && mkdir -p "$HOME/.claude/skills"
 cp -al "$HOME/.agents/skills/"* "$HOME/.claude/skills/" 2>/dev/null || cp -rn "$HOME/.agents/skills/"* "$HOME/.claude/skills/"
 
 echo "=== 3/3 Syncing global ~/.gemini/skills and bundle ==="
-tar -czf "$HOME/.gemini/all-skills.tar.gz" -C "$HOME" .agents/skills .claude/skills .claude/agents .claude/commands .claude/claude-blog-manifest.txt
-cp "$HOME/.gemini/all-skills.tar.gz" "$HOME/.gemini/all-165-skills.tar.gz" 2>/dev/null || true
-for d in "$HOME/.agents/skills/"*; do
-  if [ -d "$d" ] && [ -f "$d/SKILL.md" ]; then
-    sname=$(basename "$d")
-    mkdir -p "$HOME/.gemini/skills/$sname"
-    cp "$d/SKILL.md" "$HOME/.gemini/skills/$sname/SKILL.md"
-  fi
-done
+tar -czf "$WORK/all-skills.tar.gz" -C "$HOME" .agents/skills .claude/skills .claude/agents .claude/commands .claude/claude-blog-manifest.txt
+save_global_bundle "$WORK/all-skills.tar.gz"
 
 echo "Done! Installed $(ls -1 "$HOME/.agents/skills" | wc -l) skills globally."
